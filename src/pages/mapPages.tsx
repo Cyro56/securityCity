@@ -210,7 +210,7 @@ const MapPage = () => {
 
       factor = [];
       nodes = [];
-      console.log(way)
+      
     }
    
     
