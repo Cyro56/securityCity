@@ -11,19 +11,33 @@ import { REACT_APP_GOOGLE_API_KEY } from "../App";
 import "./mapPages.css";
 import { useState } from "react";
 
-export interface MapPageProps {}
+export interface IMap {
+  lat: number;
+  lng: number;
+  name: string;
+}
+
+interface IBairro {
+  nome: string;
+  longitude: number;
+  latitude: number;
+}
 
 const MapPage = () => {
   const [map, setMap] = React.useState<google.maps.Map>();
   const [searchBoxA, setSearchBoxA] =
     React.useState<google.maps.places.SearchBox>();
+  const [searchBoxM, setSearchBoxM] =
+    React.useState<google.maps.places.SearchBox>();
   const [searchBoxB, setSearchBoxB] =
     React.useState<google.maps.places.SearchBox>();
-  const [pointA, setPointA] = React.useState<google.maps.LatLngLiteral>();
-  const [pointB, setPointB] = React.useState<google.maps.LatLngLiteral>();
- 
-
+  const [pointA, setPointA] = React.useState<IMap>();
+  const [pointB, setPointB] = React.useState<IMap>();
+  const [pointM, setPointM] = React.useState<IMap>();
   const [origin, setOrigin] = React.useState<google.maps.LatLngLiteral | null>(
+    null
+  );
+  const [middle, setMiddle] = React.useState<google.maps.LatLngLiteral | null>(
     null
   );
   const [destination, setDestination] =
@@ -33,8 +47,8 @@ const MapPage = () => {
     React.useState<google.maps.DistanceMatrixResponse | null>(null);
 
   const position = {
-    lat: -27.590824,
-    lng: -48.551262,
+    lat: -22.874423,
+    lng: -43.337647,
   };
 
   const onMapLoad = (map: google.maps.Map) => {
@@ -44,19 +58,22 @@ const MapPage = () => {
   const onLoadA = (ref: google.maps.places.SearchBox) => {
     setSearchBoxA(ref);
   };
-
+  const onLoadM = (ref: google.maps.places.SearchBox) => {
+    setSearchBoxM(ref);
+  };
   const onLoadB = (ref: google.maps.places.SearchBox) => {
     setSearchBoxB(ref);
   };
-
+  let wayLocation: any[] = [];
   const onPlacesChangedA = () => {
     const places = searchBoxA!.getPlaces();
-    console.log(places);
     const place = places![0];
     const location = {
+      name: place.formatted_address || "sem nome",
       lat: place?.geometry?.location?.lat() || 0,
       lng: place?.geometry?.location?.lng() || 0,
     };
+
     setPointA(location);
     setOrigin(null);
     setDestination(null);
@@ -64,11 +81,32 @@ const MapPage = () => {
     map?.panTo(location);
   };
 
-  const onPlacesChangedB = () => {
-    const places = searchBoxB!.getPlaces();
-    console.log(places);
+  const onPlacesChangedM = () => {
+    const places = searchBoxM!.getPlaces();
+
     const place = places![0];
     const location = {
+      name: place.formatted_address || "sem nome",
+      lat: place?.geometry?.location?.lat() || 0,
+      lng: place?.geometry?.location?.lng() || 0,
+    };
+
+    setPointM(location);
+    setOrigin(null);
+    setDestination(null);
+    setResponse(null);
+    map?.panTo(location);
+  };
+  wayLocation.push({
+    location: pointM?.name,
+    stopover: false,
+  });
+
+  const onPlacesChangedB = () => {
+    const places = searchBoxB!.getPlaces();
+    const place = places![0];
+    const location = {
+      name: place.formatted_address || "sem nome",
       lat: place?.geometry?.location?.lat() || 0,
       lng: place?.geometry?.location?.lng() || 0,
     };
@@ -80,58 +118,35 @@ const MapPage = () => {
   };
 
   const traceRoute = () => {
-    if (pointA && pointB) {
+    if (pointA && pointB && pointM) {
       setOrigin(pointA);
+      setMiddle(pointM);
       setDestination(pointB);
     }
   };
-
-  
 
   const placeA = searchBoxA?.getPlaces();
   const placeB = searchBoxB?.getPlaces();
   let wayPointsList = [];
 
   //Algoritmo A*
-  const bairro = [
-    {
-      nome: "Barra da Tijuca, Rio de Janeiro - RJ, Brasil",
-      longitude: -23.000382,
-      latitude: -43.365886,
-    },
-    {
-      nome: "Recreio dos Bandeirantes, Rio de Janeiro - RJ, Brasil",
+  const bairro: IBairro[] = [];
+ 
 
-      longitude: -23.015789,
-      latitude: -43.464011,
+  bairro.push(
+    {
+      nome: pointA?.name || "sem nome",
+      longitude: pointA?.lng || 0,
+      latitude: pointA?.lat || 0,
     },
     {
-      nome: "Cidade de Deus, Rio de Janeiro - RJ, Brasil",
-      longitude: -22.946157,
-      latitude: -43.369686,
-    },
-    {
-      nome: "Madureira, Rio de Janeiro - RJ, Brasil",
-      longitude: -22.874423,
-      latitude: -43.337647,
-    },
-    {
-      nome: "Leme, Rio de Janeiro - RJ, Brasil",
-      longitude: -22.963802,
-      latitude: -43.170001,
-    },
-    {
-      nome: "Centro, Rio de Janeiro - RJ, Brasil",
-      longitude: -22.907853,
-      latitude: -43.18459,
-    },
-    {
-      nome: "São João de Meriti, RJ, Brasil",
-      longitude: -22.790544,
-      latitude: -43.399189,
-    },
-  ];
+      nome: pointB?.name || "sem nome",
+      longitude: pointB?.lng || 0,
+      latitude: pointB?.lat || 0,
+    }
+  );
 
+  console.log(bairro);
 
   function EuclidianDist(
     x1: number,
@@ -151,13 +166,9 @@ const MapPage = () => {
     const origemName = placeA[0]?.formatted_address;
     const destinoName = placeB[0]?.formatted_address;
 
-    console.log(origemName, destinoName)
-
     const destino = destinoName;
     const way = [origemName];
     let bairroAtual = way[0];
-
-    
 
     let DestinoIndex = bairro
       .map((bairro) => bairro.nome === destino)
@@ -210,37 +221,16 @@ const MapPage = () => {
 
       factor = [];
       nodes = [];
-      
     }
-   
-    
-    for (let i = 1; i < way.length -1; i++) {
+
+    for (let i = 1; i < way.length - 1; i++) {
       wayPointsList.push(way[i]);
-        }
-
-         
-      }
-
-    //Algoritmo A*\\
-  
-  let wayLocation = [
-    {
-      location: "barra da tijuca, rio de janeiro",
-      stopover: false,
-    },
-  ];
-
-  
-  for (let i =0; i< wayPointsList.length; i++) {
-
-      wayLocation.push({
-        location: wayPointsList[i]!,
-        stopover: false,
-      },);
-    
+    }
   }
-  wayLocation.shift()
-  console.log(wayLocation);
+
+  //Algoritmo A*\\
+
+  console.log(wayLocation, "wayLocation");
 
   const directionsServiceOptions =
     // @ts-ignore
@@ -287,7 +277,15 @@ const MapPage = () => {
               <input
                 className="addressField"
                 placeholder="Digite o endereço inicial"
-               
+              />
+            </StandaloneSearchBox>
+            <StandaloneSearchBox
+              onLoad={onLoadM}
+              onPlacesChanged={onPlacesChangedM}
+            >
+              <input
+                className="addressField"
+                placeholder="Digite o endereço de entrega"
               />
             </StandaloneSearchBox>
             <StandaloneSearchBox
